@@ -4,7 +4,7 @@ author: Zachary Hamilton
 date: '2018-10-26'
 slug: my-first-blog-post
 categories: []
-tags: []
+tags: ["R", "Baseball", "Data Vis"]
 ---
 
 ## Intro 
@@ -35,11 +35,11 @@ ggplot(dog_weight, aes(date, weight)) +
   labs(title = "Olive's Weight Chart")
 ```
 
-I had just finished reading Data Science for R and had a very vague knowledge of tidyverse data manipulation verbs and knew that they played well with the ggplot function so this was the result (I hadn't learned much about formatting yet...) It might not be much, but I realized from this simple exercise how powerful R could be and I absolutely had to learn more.
+I had just finished reading [R for Data Science](https://r4ds.had.co.nz/) and had a very vague knowledge of tidyverse data manipulation verbs and knew that they played well with the __ggplot__ function so this was the result (I hadn't learned much about formatting yet...) It might not be much, but I realized from this simple exercise how powerful R could be and I absolutely had to learn more.
 
-After that, I did some more reading and became very excited by the concept of the _pipe operator_ and came up with a visualization that shows the batting average of AL West Division MLB teams from 2011 to 2016, courtesy of data from the Lahman database!
+After that, I did some more reading and became very excited by the concept of the _pipe operator_, as you can see from the code below, and came up with a visualization that shows the batting average of AL West Division MLB teams from 2011 to 2016, courtesy of data from the Lahman database!
 
-```{r baseball, echo=FALSE, message=FALSE, warning=FALSE}
+```{r baseball, message=FALSE, warning=FALSE}
 library(tidyverse)
 library(Lahman)
 
@@ -59,6 +59,6 @@ Batting %>%
   labs(x = "Year", y = "Batting Average")
 ```
 
-
+I won't normally show my code unless I am illustrating a certain new concept I've learned or something, but all source material will be available on my [Github](https://github.com/zjham/blog). Big thanks to Jenny Bryan's [helpful resource](http://happygitwithr.com/) on Git & version control and Yihui Xie's [intro to blogdown](https://bookdown.org/yihui/blogdown/) for helping me get this blog up and running painlessly. I'll end here for now, I promise the content in future posts will have nicer formatting. Thanks for reading! 
 
 
