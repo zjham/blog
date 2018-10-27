@@ -33,6 +33,8 @@ ggplot(dog_weight, aes(date, weight)) +
   geom_point(alpha = 0.5) +
   geom_smooth() +
   labs(title = "Olive's Weight Chart")
+
+setwd("C:/Users/Zachary/Documents/R/Projects/blog")
 ```
 
 I had just finished reading [R for Data Science](https://r4ds.had.co.nz/) and had a very vague knowledge of tidyverse data manipulation verbs and knew that they played well with the __ggplot__ function so this was the result (I hadn't learned much about formatting yet...) It might not be much, but I realized from this simple exercise how powerful R could be and I absolutely had to learn more.
@@ -48,7 +50,7 @@ library(Lahman)
 Batting %>%
   filter(yearID > 2010, lgID == "AL") %>%
   left_join(Teams, by = c("yearID", "teamID")) %>%
-  filter(divID == "W" & lgID.x == "AL") %>%ss
+  filter(divID == "W" & lgID.x == "AL") %>%
   group_by(yearID, teamID) %>%
   summarise(batavg = round(sum(H.x) / sum(AB.x), 3)) %>%
   ggplot(aes(yearID, batavg, colour = teamID)) +
