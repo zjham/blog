@@ -1,0 +1,15 @@
+baseurl = "/"
+title = "Data With Z"
+author = "@JeffProd"
+copyright = "Copyright © 2008–2018, @JeffProd"
+canonifyurls = true
+paginate = 3
+
+theme = "hugo-blog-jeffprod"
+
+ignoreFiles = ["\\.Rmd$", "\\.Rmarkdown$", "_files$", "_cache$"]
+
+[taxonomies]
+    tag = "tags"
+    archive = "archives"
+
