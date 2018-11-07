@@ -126,7 +126,6 @@ p <- ggplot() +
 
 animate(p, nframes = 74, fps = 6)
 
-
 ```
 
 As we can see, California was clearly the earliest adopter of this technology, followed by a large influx through the middle region of the country in recent years. I attempted to repeat this technology for wind farms across Canada, as I am from Vancouver Island myself, but struggled to find a shape file for the provinces that was at a resolution my computer could handle (so many intricate coastlines!) If anyone has any suggestions for this, please let me know! Thanks for reading. 
@@ -137,5 +136,5 @@ Here's a parting shot of my dog Olive inadvertently testing potential wind farm 
 
 \newline 
 
-![olive in the wind](C:/Users/Zachary/Documents/R/Projects/blog/content/post/img/olive_wind.png)
+![olive in the wind](/img/olive_wind.png)
 
