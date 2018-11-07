@@ -137,5 +137,5 @@ Here's a parting shot of my dog Olive inadvertently testing potential wind farm 
 
 \newline 
 
-![olive](C:/Users/Zachary/Documents/R/Projects/blog/content/post/img/olive_wind.png)
+![olive in the wind](C:/Users/Zachary/Documents/R/Projects/blog/content/post/img/olive_wind.png)
 
