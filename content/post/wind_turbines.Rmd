@@ -51,13 +51,14 @@ wind_turbine_us %>%
 
 ```
 
-## Maps in R
+
 
 Texas leading the way with over 13,000 wind turbines across the state, and California with the next most at around 9,000. This isn't exactly surprising to me. All other factors aside, these two are the largest states by total area (other than Alaska), and a collection of wind turbines known as a wind farm is quite massive. 
 
+## Maps in R
 \newline
 
-Whenever we have inforamtion sorted geographically like this, it is just asking to be plotted on a map, so let's give that a try. I recently stumbled upon a [tutorial](https://www.r-spatial.org/r/2018/10/25/ggplot2-sf.html) regarding plotting shape files in r using `ggplot2.` This was a great introduction to one of many techniques for working with shapefiles, colour-coding information by region, and adding informative labels to plots. The `map_data` function is used below to get polygon coordinates for the US states and plot a density map of turbines across the country.  
+Whenever we have information sorted geographically like this, it is just asking to be plotted on a map, so let's give that a try. I recently stumbled upon a [tutorial](https://www.r-spatial.org/r/2018/10/25/ggplot2-sf.html) regarding plotting shape files in r using `ggplot2.` This was a great introduction to one of many techniques for working with shapefiles, colour-coding information by region, and adding informative labels to plots. The `map_data` function is used below to get polygon coordinates for the US states and plot a density map of turbines across the country.  
 
 ```{r us map}
 
@@ -136,5 +137,5 @@ Here's a parting shot of my dog Olive inadvertently testing potential wind farm 
 
 \newline 
 
-![Olive blown back by the wind](img/olive_wind.jpg)
+![olive](/img/olive_wind.png)
 
