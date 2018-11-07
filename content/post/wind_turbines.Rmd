@@ -1,0 +1,140 @@
+---
+title: "Wind Turbines in the US"
+author: "Zachary Hamilton"
+date: "2018-11-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+library(tidyverse)
+library(rworldmap)
+library(ggthemes)
+library(gganimate)
+
+
+
+wind_turbine_raw_us <- read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2018-11-06/us_wind.csv")
+
+theme_set(theme_minimal())
+
+wind_turbine_us <- wind_turbine_raw_us
+states_map <- map_data("state")
+
+
+```
+
+There is an ongoing project set up in the R Data Science Community known as "Tidy Tuesday." Each week an interesting dataset is posted with varying degrees of data cleaning required. Members of the R community are then encouraged to clean/explore the data and share interesting visualizations and conclusions on Twitter, etc with the #Rstats hashtag. This has been really helpful for me to apply what I have been learning to real life data sets. Every now and again I will devote a blog post to a "Tidy Tuesday" dataset that I find interesting. 
+
+\newline
+
+This week's dataset focuses on clean energy in the form of wind turbines in the US. Details on year of origin, operational characteristics as well as latitude and longitude are provided. Let's have a look at the distribution of wind turbines across the US states to see who is leading the way in this form of renewable energy.
+
+
+What States have the most wind turbines?
+
+```{r}
+wind_turbine_us %>%
+  mutate(t_state = state.name[match(t_state, state.abb)]) %>%
+  count(t_state, sort = TRUE) %>%
+  mutate(t_state = fct_reorder(t_state, n)) %>%
+  head(15) %>%
+  ggplot(aes(t_state, n, fill = t_state)) +
+    scale_fill_viridis_d() +
+    geom_col() +
+    coord_flip() +
+    labs(title = "Number of Wind Turbines in each US State",
+         x = "State",
+         y = "Number of Turbines") +
+    theme(legend.position = "none")
+
+```
+
+## Maps in R
+
+Texas leading the way with over 13,000 wind turbines across the state, and California with the next most at around 9,000. This isn't exactly surprising to me. All other factors aside, these two are the largest states by total area (other than Alaska), and a collection of wind turbines known as a wind farm is quite massive. 
+
+\newline
+
+Whenever we have inforamtion sorted geographically like this, it is just asking to be plotted on a map, so let's give that a try. I recently stumbled upon a [tutorial](https://www.r-spatial.org/r/2018/10/25/ggplot2-sf.html) regarding plotting shape files in r using `ggplot2.` This was a great introduction to one of many techniques for working with shapefiles, colour-coding information by region, and adding informative labels to plots. The `map_data` function is used below to get polygon coordinates for the US states and plot a density map of turbines across the country.  
+
+```{r us map}
+
+
+us_wind <- wind_turbine_us %>%
+  mutate(t_state = state.name[match(t_state, state.abb)]) %>%
+  count(t_state, sort = TRUE) %>%
+  mutate(t_state = str_to_lower(fct_reorder(t_state, n)))
+
+ggplot() +
+  geom_map(data = states_map, map = states_map, aes(map_id = region), color = "#2b2b2b", fill = "black") +
+  geom_map(data = us_wind,    map = states_map, aes(map_id = t_state, fill = n)) +
+  scale_fill_continuous(name = "Value") +
+  expand_limits(x = states_map$long, y = states_map$lat) +
+  coord_map("polyconic") +
+  theme_map(base_size = 14)
+
+
+```
+\newline
+
+This plot displays much the same information as the bar chart above, but this arrangement allows us to start to see geographical relationships. For example, observe the relative absense of wind turbines in the southeast states such as Mississippi, Alabama, Georgia.
+
+in addition to state, we have precise information on latitude and longitude which we have not utilized yet, so we can add one more level of detail using a density plot in r.
+
+```{r density}
+
+us_wind_dense <- wind_turbine_us %>%
+  mutate(t_state = str_to_lower(state.name[match(t_state, state.abb)])) %>%
+  filter(ylat < 49, ylat > 25)
+
+
+ggplot() +
+  geom_map(data = states_map, map = states_map, aes(map_id = region), color = "#2b2b2b", fill = "#c0c3c6") +
+  stat_density_2d(data = us_wind_dense, aes(x = xlong, y = ylat, fill = ..level..), geom = "polygon") +
+  expand_limits(x = states_map$long, y = states_map$lat) +
+  coord_map("polyconic") +
+  theme_map(base_size = 14)
+```
+
+I like this plot becuase it really highlights the areas that we care about and gives us a sense of where the wind turbines are located *within* each state. 
+
+## How has the distribution of Wind Turbines across the United States changed over time?
+Which was the first state to adopt wind turbines as an energy source? How has the spread of wind farms changed across the country over time? These are both questions that we can answer because we have the date that each wind farm project was established included in this dataset. Instead of putting this sort of information on a line chart and coloring by state or region, we can utilize the wonderful `gganimate` package to visualize the growth of these farms through time. the `transition_reveal` function iterates over the variable containing year of establishment and adds layers to the plot at each frame. 
+
+```{r density year}
+
+us_wind_ani <- wind_turbine_us %>%
+  mutate(t_state = str_to_lower(state.name[match(t_state, state.abb)])) %>%
+  filter(xlong > -130, xlong < -60, ylat > 20) %>%
+  filter(p_year != -9999) %>%
+  distinct(p_name, .keep_all = TRUE) %>%
+  select(case_id, t_state, p_year, xlong, ylat)
+
+p <- ggplot() +
+  geom_map(data = states_map, map = states_map, aes(map_id = region), color = "#2b2b2b", fill = "#c0c3c6") +
+  geom_point(data = us_wind_ani, aes(x = xlong, y = ylat), alpha = 0.5, position = "jitter") +
+  expand_limits(x = states_map$long, y = states_map$lat) +
+  coord_map() +
+  theme_map() +
+  labs(title = "Year: {frame_along}") +
+  theme(plot.title = element_text(size = 16)) +
+  transition_reveal(id = case_id, along = p_year)
+
+
+animate(p, nframes = 74, fps = 6)
+
+
+```
+
+As we can see, California was clearly the earliest adopter of this technology, followed by a large influx through the middle region of the country in recent years. I attempted to repeat this technology for wind farms across Canada, as I am from Vancouver Island myself, but struggled to find a shape file for the provinces that was at a resolution my computer could handle (so many intricate coastlines!) If anyone has any suggestions for this, please let me know! Thanks for reading. 
+
+\newline 
+
+Here's a parting shot of my dog Olive inadvertently testing potential wind farm locations on Vancouver Island `r emo::ji("laugh")`  
+
+\newline 
+
+![Olive blown back by the wind](img/olive_wind.jpg)
+
