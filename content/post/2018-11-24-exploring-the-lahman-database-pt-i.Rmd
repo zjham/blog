@@ -1,0 +1,155 @@
+---
+title: "Exploring the Lahman Database Pt. I"
+author: "Zachary Hamilton"
+date: '2018-11-24'
+output:
+  html_document:
+    df_print: paged
+    self_contained: no
+slug: exploring-the-lahman-database-pt-i
+tags: ["baseball", "sabermetrics"]
+categories: ["r", "dataviz", "data-wrangling"]
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE)
+library(tidyverse)
+theme_set(theme_minimal())
+```
+
+
+I think some of the appeal that baseball has always had for me comes from the data and stats that are intertwined in the game. I grew up playing little league and supporting the Seattle Mariners (sorry Jays, west coast proximity factor). I went to my first MLB game in 2001 at Safeco Field and instantly fell in love with the magic of the big leagues. More than just the hot dogs and garlic fries at the ballpark, I found my attention constantly being drawn to the player's stats - batting averages, doubles, triples, home runs - displayed prominently on the Jumbotron scoreboard, and the giant LED pitch speed clocks scattered around the park. In 2011, I watched Moneyball with my dad, and like many others, was fascinated by the analytical approach that teams were beginning to take to gain a competitive edge in professional baseball. Although my support for the Mariners has not changed since that first day at the ballpark, the way I began to view stats did. I stumbled upon the world of sabermetrics and began to talk about players in terms of on-base percentage (OBP) and wins above replacement (WAR), instead of the traditional counting stats like hits and RBIs.
+
+![](./img/safeco.png)
+
+Now that I am beginning to learn R, my interest for exploring these stats and creating informative visualizations has been amplified. I figured it would be useful exercise to derive some of the modern baseball statistics like Weighted Runs Created Plus (wRC+) and FIP (Fielding Independant Pitching) from counting stats like hits and walks. There are great packages like `baseballr` that scrape this information for use but I wanted to have a go at it from first principles for the benefit of my understanding, so that's what I'll present here. The `lahman` package in R does not yet contain data from the 2017 so instead I'll manually grab the csv files I need from the appropriate github repo. Necessary constants and weights will be obtained from [FanGraphs](https://www.fangraphs.com/). I haven't had any experience scraping HTML tables yet so this will be done using the less glamorous export to csv functions on the website. Once I have all of the necessary tables, I use `dplyr` and its excellent relational table functions to extract and combine all of the information I need. Then comes the big `mutate` code block where I calculate all of the statistics. For an explanation of some of the more complicated ones, see below. Here is a sample of the lahman 'Batting' database.  
+
+```{r, message=FALSE}
+
+batting <- read_csv("https://raw.githubusercontent.com/chadwickbureau/baseballdatabank/master/core/Batting.csv", col_types = "cddccddddddddddddddddd") #col types given because read_csv was wrongly classifying some columns as logical. 
+teams <-   read_csv("https://raw.githubusercontent.com/chadwickbureau/baseballdatabank/master/core/Teams.csv", col_types = "dccccdddddccccddddddddddddddddddddddddddccdddccc")
+players <- read_csv("https://raw.githubusercontent.com/chadwickbureau/baseballdatabank/master/core/People.csv")
+weights <- read_csv("./csv/woba-fip.csv") 
+wrc_al <-  read_csv("./csv/wrc_al.csv")  
+wrc_nl <-  read_csv("./csv/wrc_nl.csv")   
+ 
+wrc_al <- wrc_al %>%
+  select(Season, wRC, PA) %>%
+  mutate(lgID = "AL")
+
+wrc_nl <- wrc_nl %>%
+  select(Season, wRC, PA) %>%
+  mutate(lgID = "NL")
+
+wrc_chart <- bind_rows(wrc_al, wrc_nl) %>%
+  rename(wRCLeague = wRC,
+         yearID = Season,
+         PALeague = PA) 
+
+woba_weights <- weights %>%
+  select(Season, wBB, wHBP, w1B, w2B, w3B, wHR, wOBA, wOBAScale, `R/PA`) %>%
+  rename(wOBALeague = wOBA,
+         RPALeague = `R/PA`)
+
+batting %>%
+  filter(yearID == 2017) %>%
+  arrange(desc(H)) %>%
+  head(20)
+ 
+```
+
+```{r, echo=TRUE}
+
+batting_processed <- batting %>%
+  left_join(teams %>% select(teamID, yearID, name, BPF), by = c("teamID", "yearID")) %>%
+  left_join(wrc_chart, by = c("yearID", "lgID")) %>%
+  left_join(woba_weights, by = c("yearID" = "Season")) %>%
+  mutate(PA = AB + BB + IBB + SH + SF + HBP,
+         TB = H + `2B` + 2 * `3B` + 3 * HR,
+         BA = ifelse(AB > 0, round(H/AB, 3), NA), 
+         OBP = ifelse(AB > 0, round((H + BB + IBB + HBP)/PA, 3), NA), #ifelse statement deals with AB = 0 case
+         SA = ifelse(AB > 0, round(TB/AB, 3), NA),
+         OPS = OBP + SA,
+         slash = ifelse(!is.na(BA), paste(BA, OBP, SA, sep = "/"), NA),
+         BABIP = ifelse(AB > 0, round((H-HR)/(AB-SO-HR+SF), 3), NA),
+         wOBA = ifelse(AB > 0, (wBB*(BB-IBB) + wHBP*HBP + w1B*(H-`2B`-`3B`-HR) + w2B*`2B` + w3B*`3B` + wHR*HR) /(AB + BB - IBB + SF + HBP), NA),
+         wRAA = round(((wOBA - wOBALeague)/wOBAScale) * PA, 0), 
+         WRC = round((wOBA - wOBALeague)/wOBAScale + RPALeague*PA, 0),
+         BPF = BPF/100, #BPF needs to be a fraction of 1 for calculations.
+         WRCplus = round((((wRAA/PA + RPALeague) + (RPALeague - BPF*RPALeague))/(wRCLeague/PALeague)*100), 0),
+         wOBA = round(wOBA, 3)) %>%
+  select(-(name:RPALeague)) #drop weight variables when we're finished
+
+
+batting_processed <- batting_processed %>%   #add in readable names from players database
+  left_join(players %>% select(playerID, nameFirst, nameLast), by = "playerID") %>%
+  mutate(Name = paste(nameLast, nameFirst, sep = ", ")) %>%
+  select(-nameFirst, -nameLast)
+
+```
+
+Let me unpack the code chunk above a little bit. The batting database comes with a number of counting statistics from which all other statistics can be calculated. These are:
+
+* **AB**: At Bats
+* **H**: Total Hits
+* **2B**
+* **3B**
+* **HR**
+* **BB**: Walks (**B**ase on **B**alls)
+* **IBB**: Intentional Walks
+* **HBP**: Hit by Pitch
+* **SH**: Sacrifice Hits
+* **SF**: Sacrifice Flies 
+
+
+From these we are able to calculate statistics that give us a better idea of a player's value to their team. For a full explanation, each term links to the FanGraphs glossary page which includes the equation for its calculation as well as examples. 
+
+* [BABIP](https://www.fangraphs.com/library/offense/babip/): Batting Average on Balls in Play - When we compare this value to a player's batting average overall, we get a sense of how lucky or unlucky a player has been. I.e. when playing against a team with better defensive players this will be lower because they would make outs on plays that may normally drop in for a hit. 
+
+* [wOBA](https://www.fangraphs.com/library/offense/woba/): Weighted on-base average gives empirical weights to each possible outcome a batter can have instead of assigning 1 to a single, 2 to a double, etc.
+
+* [wRAA](https://www.fangraphs.com/library/offense/wraa/): Weighted Runs Above Average is a stat that attempts to quanitfy how many more runs a player contributed to their team than an average player would. This value can be negative or positive and uses the same weighting values as wOBA. The underlying principle behind sabermetrics is that if we can effectively quantify how many extra runs a player is worth, then we can infer how many extra wins a player can contribute to a team, the ultimate goal. 
+
+* [wRC+](https://www.fangraphs.com/library/offense/wrc/): Takes wRAA values and adjusts them for the current years' run scoring environment as well as the hitter friendliness of the home park that they play in. It is also adjusted so that a WRC+ of 100 is league average, and someone with a wRC+ of 130 is considered to have had a 30% greater season at the plate than average.  
+
+One problem that I am still working on dealing with in this process is players that spent time with multiple teams during one season. These stints are each given a separate entry in the batting database and will need to be aggregated while accounting for different ball park factors etc. when calculating things like WRC+. With these stats we can start to imagine visualizations that we can create that contain much more information than something like home run or stolen base leaderboards.
+
+I'll present a couple of examples to give an idea of some of the directions we can explore with this dataset. The first one is the WRCplus profile of a trio of Seattle Mariner greats across their careers. Edgar and Griffey were perennial power and gap hitters, whereas Ichiro was more of a singles hitter and speedster. As we can see, the WRC+ metric seems to favour the power hitter profile, something worth exploring in later posts. 
+
+```{r}
+
+batting_processed %>%
+  filter(Name %in% c("Martinez, Edgar", "Griffey, Ken", "Suzuki, Ichiro"), AB > 300) %>%
+  ggplot(aes(WRCplus, fill = factor(Name))) +
+  geom_density(alpha = 0.1, size = 1) +
+  scale_fill_viridis_d(name = "Player") +
+  labs(title = "Career WRC+ Profiles of popular Seattle Mariners players over their careers",
+       subtitle = "Only seasons with > 300 Plate Appearances are included",
+       x = "wRC+") 
+  
+```
+
+This next graph highlights the BABIP metric for the 2008 season, which if you recall can be thought of as a proxy for how lucky/unlucky a player has been in a season. I've added labels to the top 5 luckiest & unluckiest players based on a ratio of BABIP/BA. Players above the regression line were generally luckier than those below. 
+
+```{r}
+
+batting_processed %>%
+  filter(yearID == 2008, AB > 500) %>%
+  ggplot(aes(BA, BABIP)) +
+    geom_point() +
+    geom_smooth(method = "lm", se = FALSE) +
+    geom_label(data = batting_processed %>%
+                        filter(yearID == 2008, AB > 500, BABIP/BA > 1.235 | BABIP/BA < 1.019), aes(BA, BABIP, label = Name),
+               nudge_x = 0.005,
+               nudge_y = 0.005) +
+    geom_point(data = batting_processed %>%
+                        filter(yearID == 2008, AB > 500, BABIP/BA > 1.235 | BABIP/BA < 1.019), aes(BA, BABIP), size = 2, col = "red") +
+  labs(title = "BABIP and BA comparisons of players during the 2008 season",
+       subtitle = "Only players with > 500 AB were included",
+       x = "Batting Average (BA)")
+
+
+
+```
+
+
+This ended up being mostly about Batting stats, so I will make a separate post addressing some of the popular modern pitching statistics and how to calculate them using publically available data. Future posts will dive a bit deeper into some player analysis, and predictive modelling for the upcoming 2019 season. As always, code & data will be available on my [Github](https://github.com/zjham/blog) if you would like to explore for yourself.
