@@ -1,0 +1,74 @@
+---
+title: "My First Shiny App"
+author: "Zachary Hamilton"
+date: "06/01/2019"
+output: 
+  html_document:
+    self_contained: no
+slug: my-first-shiny-app
+tags: ["weather", "climate"]
+categories: ["r", "dataviz", "shiny"]
+---
+
+
+
+<p>Shiny is a fantastic tool for a number of reasons. For one, it is a platform to bring your data visualizations and results to life, and because it is hosted at shinyapps.io, sharing is as easy as copy and pasting a url to invite colleagues/friends/family to view your work. Most importantly however, is that it allows the end user to interact with your data, asking their own questions and coming to their own conclusions. This level of involvedness is crucial for retaining people’s attention, something that is becoming more and more difficult in modern society. Many examples of shiny apps that I have come across are incredibly versatile too, even allowing the user to upload their own dataset for analysis.</p>
+<p>My shiny journey began at DataCamp, where I took the course “Building Web Applications in R with Shiny” as well as the case studies follow-up. These courses did an excellent job explaining concepts such as reactivity that are difficult for someone who does not have prior web development experience (me). After these courses I felt confident enough to jump into my own web application, which can be found <a href="https://zachary-hamilton.shinyapps.io/weather_app/">here</a> if you want to jump ahead!</p>
+<p>First, I needed an idea. My brother is a meteorologist with The Weather Network, and operator of the prolific PNW weather twitter account @<a href="https://twitter.com/50ShadesofVan">50ShadesofVan</a>. Recently, we have been collaborating to produce some informative graphics for his twitter audience such as those shown below (We’ve had an exceptional amount of rain on the west coast this winter):</p>
+<p><img src="/img/precip_anim_loop.gif" alt="Vancouver Precip Loop" width="400" /> <img src="/img/yvr_rain.png" alt="Vancouver Precip" width="500" /></p>
+<p>So my premise was to create a simple app that allowed a user to compare historic temperature and precipitation trends across major Canadian cities using Environment Canada data. I relied heavily on the <a href="https://github.com/ropensci/weathercan"><code>weathercan</code></a> package to fetch my climate data from <a href="http://dd.meteo.gc.ca/">ECCC</a>. Using the main function <code>weather_dl</code> a typical query for data was as follows:</p>
+<pre class="r"><code>library(weathercan)
+
+weather_dl(station_ids = &quot;51442&quot;, start = &quot;2018-12-01&quot;, end = &quot;2018-12-02&quot;, interval = &quot;hour&quot;) %&gt;%
+  head(5)</code></pre>
+<pre><code>## # A tibble: 5 x 35
+##   station_name station_id station_operator prov    lat   lon  elev
+##   &lt;chr&gt;        &lt;chr&gt;      &lt;chr&gt;            &lt;fct&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
+## 1 VANCOUVER I~ 51442      NAV Canada       BC     49.2 -123.   4.3
+## 2 VANCOUVER I~ 51442      NAV Canada       BC     49.2 -123.   4.3
+## 3 VANCOUVER I~ 51442      NAV Canada       BC     49.2 -123.   4.3
+## 4 VANCOUVER I~ 51442      NAV Canada       BC     49.2 -123.   4.3
+## 5 VANCOUVER I~ 51442      NAV Canada       BC     49.2 -123.   4.3
+## # ... with 28 more variables: climate_id &lt;chr&gt;, WMO_id &lt;chr&gt;, TC_id &lt;chr&gt;,
+## #   date &lt;date&gt;, time &lt;dttm&gt;, year &lt;chr&gt;, month &lt;chr&gt;, day &lt;chr&gt;,
+## #   hour &lt;chr&gt;, weather &lt;chr&gt;, hmdx &lt;dbl&gt;, hmdx_flag &lt;chr&gt;,
+## #   pressure &lt;dbl&gt;, pressure_flag &lt;chr&gt;, rel_hum &lt;dbl&gt;,
+## #   rel_hum_flag &lt;chr&gt;, temp &lt;dbl&gt;, temp_dew &lt;dbl&gt;, temp_dew_flag &lt;chr&gt;,
+## #   temp_flag &lt;chr&gt;, visib &lt;dbl&gt;, visib_flag &lt;chr&gt;, wind_chill &lt;dbl&gt;,
+## #   wind_chill_flag &lt;chr&gt;, wind_dir &lt;dbl&gt;, wind_dir_flag &lt;chr&gt;,
+## #   wind_spd &lt;dbl&gt;, wind_spd_flag &lt;chr&gt;</code></pre>
+<p>Data returned includes hour by hour information on pressure, humidity, temperature, and wind. If the interval variable is set to “day” in the <code>weather_dl</code> function, daily precipitation values are included. I chose to stick to temperature and precipitation for the purposes of my simple app. I used <code>tidyverse</code> tools to clean the data and extract variables that I knew I would want.</p>
+<div id="trial-and-error-with-shiny" class="section level2">
+<h2>Trial and Error with Shiny</h2>
+<p>It’s amazing how much you can learn just by reading help documentation for functions and the subsequent error messages when you try and put them into practice. This process describes my initial experience with setting up user inputs and graph/table outputs with Shiny.</p>
+<p>My first issue came up because I wanted to give the user the option to view daily data, or to average over monthly &amp; yearly periods. In essence I wanted to perform different transformations on my dataset based on the input selected by the user. After some googling, I found an elegant solution using the <code>switch</code> function. In the UI function, I included a simple radio button input to let the user select the frequency of observations:</p>
+<pre class="r"><code>radioButtons(inputId = &quot;freq&quot;, 
+             label = &quot;Frequency&quot;,
+             choices = c(&quot;Daily&quot; = &quot;daily&quot;,
+                         &quot;Monthly&quot; = &quot;monthly&quot;,
+                         &quot;Yearly&quot; = &quot;yearly&quot;),
+             selected = &quot;daily&quot;)</code></pre>
+<p>In the server function, I utilized the <code>switch</code> function to set up a reactive dataset that would incorporate the appropriate transformations based on the user input, where <code>climate_daily</code>, <code>climate_monthly</code> and <code>climate_yearly</code> are datasets created during the initial import &amp; clean step to accomplish this goal:</p>
+<pre class="r"><code> datasetInput &lt;- reactive({     
+   switch(input$freq,
+                &quot;daily&quot; = climate_daily,
+                &quot;monthly&quot; = climate_monthly,
+                &quot;yearly&quot; = climate_yearly)
+ })</code></pre>
+
+<div id="additional-features" class="section level3">
+<h3>Additional Features</h3>
+<ul>
+<li><p>Used the <code>tabsetPanel</code> function to allow the user to switch between the selected plot and a table containing info about the weather stations that recorded the relevant data.</p></li>
+<li><p>Added interactive functionality to my plots using <code>plotly</code> which is as simple as wrapping a <code>ggplot</code> object in the main function and using <code>plotlyOuptput</code> instead of <code>plotOutput</code> in the UI function. This is a simple touch that allows the user to zoom in on data points they find interesting and hover over individual records for more information.</p></li>
+<li><p>Created a table to display min/max values from the selected timeframe below the chart &amp; used the <code>DT</code> package to enhance the appearance of tables.</p></li>
+</ul>
+
+<p>Overall, my first experience with shiny, while not without speedbumps, was very positive and I will definitely be looking for ways to incorporate this into future projects. Code for this shiny app, including the script I used to import/clean the ECCC data can be found on my <a href="https://github.com/zjham/climatecharts">github</a>.</p>
+<p><a href="https://zachary-hamilton.shinyapps.io/weather_app/">Here is another link to the app</a>, and below is a screenshot of the landing page.</p>
+<div class="figure">
+<img src="/img/climate_app.png" alt="App Landing Page" />
+<p class="caption">App Landing Page</p>
+</div>
+</div>
+</div>
