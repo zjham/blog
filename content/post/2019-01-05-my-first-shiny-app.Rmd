@@ -1,11 +1,7 @@
 ---
 title: "My First Shiny App"
 author: "Zachary Hamilton"
-<<<<<<< HEAD
 date: "2019-01-06"
-=======
-date: "06/01/2019"
->>>>>>> 967c84c9fbef3d363af360d7be428e68bc605f8b
 output: 
   html_document:
     self_contained: no
